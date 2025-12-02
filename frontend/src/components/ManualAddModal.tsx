@@ -118,7 +118,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Leave empty to auto-generate"
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
               />
             </div>
             
@@ -131,7 +131,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 required
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 dark:text-gray-100"
               />
             </div>
 
@@ -143,7 +143,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
                 value={formData.authors || ''}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
               />
             </div>
 
@@ -155,7 +155,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
                 value={formData.publisher || ''}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
               />
             </div>
 
@@ -167,7 +167,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
                 value={formData.published_date || ''}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
               />
             </div>
 
@@ -179,7 +179,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
                 value={formData.cover_url || ''}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
               />
             </div>
 
@@ -189,7 +189,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
                 name="status"
                 value={formData.status || 'unread'}
                 onChange={handleChange}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
               >
                 <option value="unread">Unread</option>
                 <option value="reading">Reading</option>
@@ -206,7 +206,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               rows={4}
-              className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
+              className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-gray-900 dark:text-gray-100"
             />
           </div>
         </form>

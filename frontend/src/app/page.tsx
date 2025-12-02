@@ -8,6 +8,7 @@ import { ScannerModal } from '@/components/ScannerModal';
 import { ManualAddModal } from '@/components/ManualAddModal';
 import { BookshelfView } from '@/components/BookshelfView';
 import { GroupSection } from '@/components/GroupSection';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Book } from '@/types';
 
 export default function Home() {
@@ -179,6 +180,8 @@ export default function Home() {
                   <option value="title_asc">Title A-Z</option>
                   <option value="author_asc">Author A-Z</option>
                 </select>
+
+                <ThemeToggle />
 
                 <button
                   onClick={() => setIsScannerOpen(true)}

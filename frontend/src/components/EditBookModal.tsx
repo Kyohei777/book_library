@@ -116,7 +116,7 @@ export function EditBookModal({ book, onUpdate, onClose }: EditBookModalProps) {
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
               onKeyDown={handleKeyDown}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-gray-100"
               required
             />
           </div>
@@ -129,7 +129,7 @@ export function EditBookModal({ book, onUpdate, onClose }: EditBookModalProps) {
               value={formData.authors}
               onChange={(e) => setFormData({...formData, authors: e.target.value})}
               onKeyDown={handleKeyDown}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-gray-100"
             />
           </div>
 
@@ -142,7 +142,7 @@ export function EditBookModal({ book, onUpdate, onClose }: EditBookModalProps) {
               onChange={(e) => setFormData({...formData, series_title: e.target.value})}
               onKeyDown={handleKeyDown}
               placeholder="e.g. Harry Potter"
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-gray-100"
             />
           </div>
 
@@ -155,7 +155,7 @@ export function EditBookModal({ book, onUpdate, onClose }: EditBookModalProps) {
                 value={formData.publisher}
                 onChange={(e) => setFormData({...formData, publisher: e.target.value})}
                 onKeyDown={handleKeyDown}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-gray-100"
                 />
             </div>
             <div>
@@ -164,7 +164,7 @@ export function EditBookModal({ book, onUpdate, onClose }: EditBookModalProps) {
                 name="status"
                 value={formData.status}
                 onChange={(e) => setFormData({...formData, status: e.target.value})}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-gray-100"
                 >
                     <option value="unread">Unread</option>
                     <option value="reading">Reading</option>
@@ -181,7 +181,7 @@ export function EditBookModal({ book, onUpdate, onClose }: EditBookModalProps) {
               onChange={(e) => setFormData({...formData, description: e.target.value})}
               onKeyDown={handleKeyDown}
               rows={3}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none resize-none text-gray-900 dark:text-gray-100"
             />
           </div>
 
@@ -194,7 +194,7 @@ export function EditBookModal({ book, onUpdate, onClose }: EditBookModalProps) {
               onChange={(e) => setFormData({...formData, cover_url: e.target.value})}
               onKeyDown={handleKeyDown}
               placeholder="https://..."
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-gray-100"
             />
             <p className="text-xs text-gray-500 mt-1">Paste an image URL from Amazon or other sources.</p>
           </div>
