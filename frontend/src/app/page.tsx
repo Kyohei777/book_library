@@ -100,6 +100,7 @@ export default function Home() {
                 My Library
               </h1>
               <div className="flex items-center gap-2 md:hidden">
+                <ThemeToggle />
                 <button
                   onClick={() => setIsScannerOpen(true)}
                   className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-lg transition-all active:scale-95"
@@ -131,7 +132,7 @@ export default function Home() {
               </div>
 
               {/* View Mode & Sort */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 no-scrollbar shrink-0">
                 <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg shrink-0">
                   <button
                     onClick={() => setViewMode('grid')}
@@ -181,7 +182,7 @@ export default function Home() {
                   <option value="author_asc">Author A-Z</option>
                 </select>
 
-                <ThemeToggle />
+                <ThemeToggle className="hidden md:block" />
 
                 <button
                   onClick={() => setIsScannerOpen(true)}
