@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: library-backend
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=sqlite:////app/db/library.db
+      - RAKUTEN_APP_ID=${RAKUTEN_APP_ID}
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: library-frontend
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3000/api
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    restart: always
+
+
