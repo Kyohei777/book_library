@@ -163,6 +163,16 @@ def delete_book(isbn: str, db: Session = Depends(get_db)):
     db.delete(book)
     db.commit()
 
+@app.get("/lookup/isbn/{isbn}")
+def lookup_isbn(isbn: str):
+    """
+    Lookup book information by ISBN using external APIs (Rakuten Books, Google Books)
+    """
+    book_data = fetch_book_data(isbn)
+    if book_data:
+        return book_data
+    raise HTTPException(status_code=404, detail="Book not found")
+
 @app.get("/search/title")
 def search_by_title(query: str):
     """

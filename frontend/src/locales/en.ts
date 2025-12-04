@@ -109,4 +109,7 @@ export const en = {
   adding: 'Adding...',
   titleRequired: 'Title is required.',
   failedToAdd: 'Failed to add book.',
+  isbnTooShort: 'ISBN must be at least 10 digits',
+  bookNotFound: 'Book not found',
+  searchError: 'Error occurred while searching',
 };

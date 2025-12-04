@@ -22,19 +22,53 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
     status: 'unread',
   });
   const [isSaving, setIsSaving] = useState(false);
-
-  // Generate a random ISBN-like ID if user doesn't provide one?
-  // Or require ISBN. Let's start with empty.
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'isbn') {
+      setSearchError(null);
+    }
+  };
+
+  const searchByIsbn = async () => {
+    const isbn = formData.isbn?.trim();
+    if (!isbn || isbn.length < 10) {
+      setSearchError(t.isbnTooShort || 'ISBNは10桁以上必要です');
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchError(null);
+
+    try {
+      const response = await fetch(`/api/lookup/isbn/${isbn}`);
+      if (response.ok) {
+        const data = await response.json();
+        setFormData(prev => ({
+          ...prev,
+          title: data.title || prev.title,
+          authors: data.authors || prev.authors,
+          publisher: data.publisher || prev.publisher,
+          published_date: data.published_date || prev.published_date,
+          description: data.description || prev.description,
+          cover_url: data.cover_url || prev.cover_url,
+        }));
+      } else {
+        setSearchError(t.bookNotFound || '本が見つかりませんでした');
+      }
+    } catch (error) {
+      console.error('ISBN lookup error:', error);
+      setSearchError(t.searchError || '検索中にエラーが発生しました');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const saveChanges = async () => {
     if (!formData.isbn) {
-      // Auto-generate a temporary ID if ISBN is missing
-      // Format: manual-{timestamp}
       formData.isbn = `manual-${Date.now()}`;
     }
     if (!formData.title) {
@@ -71,7 +105,6 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
   }, [formData]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // Ctrl + D for inserting a period
     if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
       e.preventDefault();
       const target = e.currentTarget;
@@ -79,15 +112,16 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
       
       if (selectionStart !== null && selectionEnd !== null) {
         const newValue = value.substring(0, selectionStart) + '.' + value.substring(selectionEnd);
-        
-        // Update state
         setFormData(prev => ({ ...prev, [name]: newValue }));
-        
-        // Restore cursor position
         requestAnimationFrame(() => {
           target.selectionStart = target.selectionEnd = selectionStart + 1;
         });
       }
+    }
+    // Enter key in ISBN field triggers search
+    if (e.key === 'Enter' && e.currentTarget.name === 'isbn') {
+      e.preventDefault();
+      searchByIsbn();
     }
   };
 
@@ -113,15 +147,34 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.isbnOptional}</label>
-              <input
-                type="text"
-                name="isbn"
-                value={formData.isbn || ''}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder={t.isbnAutoGenerate}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  name="isbn"
+                  value={formData.isbn || ''}
+                  onChange={handleChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder={t.isbnAutoGenerate}
+                  className="flex-1 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={searchByIsbn}
+                  disabled={isSearching}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isSearching ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {searchError && (
+                <p className="text-sm text-red-500">{searchError}</p>
+              )}
             </div>
 
             <div className="space-y-2">

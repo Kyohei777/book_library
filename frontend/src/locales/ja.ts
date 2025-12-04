@@ -109,4 +109,7 @@ export const ja = {
   adding: '追加中...',
   titleRequired: 'タイトルは必須です。',
   failedToAdd: '本の追加に失敗しました。',
+  isbnTooShort: 'ISBNは10桁以上必要です',
+  bookNotFound: '本が見つかりませんでした',
+  searchError: '検索中にエラーが発生しました',
 };
