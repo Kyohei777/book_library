@@ -13,6 +13,7 @@ import { TitleSearchModal } from '@/components/TitleSearchModal';
 import { SeriesBulkModal } from '@/components/SeriesBulkModal';
 import { StatsDashboard } from '@/components/StatsDashboard';
 import { BottomNav } from '@/components/BottomNav';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Book } from '@/types';
 
 export default function Home() {
@@ -149,6 +150,7 @@ export default function Home() {
                 >
                   {language === 'ja' ? 'EN' : 'JA'}
                 </button>
+                <ThemeToggle />
               </div>
               <div className="flex items-center gap-2 md:hidden">
                 <button
