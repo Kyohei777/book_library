@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, DateTime
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -21,10 +21,31 @@ class Book(Base):
     published_date = Column(String)
     description = Column(String)
     cover_url = Column(String)
-    status = Column(String, default="unread")
+    status = Column(String, default="unread")  # wishlist, ordered, purchased_unread, reading, done, paused
     location = Column(String)
     series_title = Column(String)
     created_at = Column(DateTime, default=datetime.now)
+
+    # Wishlist and reading tracking
+    purchased_date = Column(DateTime, nullable=True)
+    reading_start_date = Column(DateTime, nullable=True)
+    reading_end_date = Column(DateTime, nullable=True)
+
+    # Reading records
+    rating = Column(String, nullable=True)  # 1-5 stars
+    notes = Column(String, nullable=True)  # Reading notes/review
+
+    # Tags
+    tags = Column(String, nullable=True)  # Comma-separated tags
+
+    # Lending management
+    lent_to = Column(String, nullable=True)  # Person who borrowed the book
+    lent_date = Column(DateTime, nullable=True)  # When it was lent
+    due_date = Column(DateTime, nullable=True)  # When it should be returned
+
+    # Series and bookshelf management
+    volume_number = Column(Integer, nullable=True)  # Volume number extracted from title
+    is_series_representative = Column(Boolean, default=False)  # Display this as series cover in bookshelf view
 
 def init_db():
     Base.metadata.create_all(bind=engine)
