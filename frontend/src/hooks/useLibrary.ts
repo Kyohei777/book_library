@@ -17,6 +17,16 @@ export const useLibrary = () => {
   // グループ展開用
   const [expandedAuthors, setExpandedAuthors] = useState<Set<string>>(new Set());
 
+  // 検索用正規化関数：全角→半角、スペース統一、小文字化
+  const normalizeForSearch = (str: string): string => {
+    return str
+      .toLowerCase()
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)) // 全角英数→半角
+      .replace(/　/g, ' ') // 全角スペース→半角スペース
+      .replace(/\s+/g, ' ') // 連続スペースを1つに
+      .trim();
+  };
+
   // デバウンス処理: 入力が止まって300ms後に検索を実行
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -134,10 +144,12 @@ export const useLibrary = () => {
   const processedBooks = useMemo(() => {
     let result = [...books];
     if (debouncedSearch) {
-      const lowerTerm = debouncedSearch.toLowerCase();
-      result = result.filter(book => 
-        book.title.toLowerCase().includes(lowerTerm) || 
-        (book.authors && book.authors.toLowerCase().includes(lowerTerm))
+      const normalizedTerm = normalizeForSearch(debouncedSearch);
+      result = result.filter(book =>
+        normalizeForSearch(book.title || '').includes(normalizedTerm) ||
+        normalizeForSearch(book.authors || '').includes(normalizedTerm) ||
+        normalizeForSearch(book.series_title || '').includes(normalizedTerm) ||
+        normalizeForSearch(book.publisher || '').includes(normalizedTerm)
       );
     }
     result.sort((a, b) => {

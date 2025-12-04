@@ -79,21 +79,13 @@
 
 1. [Rakuten Developers](https://webservice.rakuten.co.jp/) にアクセスし、会員登録・ログインを行います。
 2. 「アプリID発行」から新しいアプリを作成し、**アプリID (App ID)** を取得します。
-3. プロジェクトルートにある `.env.example` をコピーして `.env` ファイルを作成します。
-   ```bash
-   cp .env.example .env
-   ```
-4. `.env` ファイルを開き、`RAKUTEN_APP_ID` に取得したIDを設定します。
+3. `docker-compose.yml` を開き、`backend` サービスの `RAKUTEN_APP_ID` を書き換えます。
 
-```env
-RAKUTEN_APP_ID=あなたのアプリID
+```yaml
+    environment:
+      - DATABASE_URL=sqlite:////app/db/library.db
+      - RAKUTEN_APP_ID=あなたのアプリID  # <--- ここを取得したIDに変更
 ```
-
-5. Docker Composeを再起動して設定を反映させます。
-   ```bash
-   docker-compose down
-   docker-compose up -d --build
-   ```
 
 ## 📱 使い方
 

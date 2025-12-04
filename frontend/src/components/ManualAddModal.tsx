@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Book } from '@/types';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ManualAddModalProps {
   onClose: () => void;
@@ -9,6 +10,7 @@ interface ManualAddModalProps {
 }
 
 export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState<Partial<Book>>({
     isbn: '',
     title: '',
@@ -36,7 +38,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
       formData.isbn = `manual-${Date.now()}`;
     }
     if (!formData.title) {
-      alert("Title is required.");
+      alert(t.titleRequired);
       return;
     }
 
@@ -46,7 +48,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
       onClose();
     } catch (error) {
       console.error("Failed to add book", error);
-      alert("Failed to add book.");
+      alert(t.failedToAdd);
     } finally {
       setIsSaving(false);
     }
@@ -98,7 +100,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
       >
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <span className="text-2xl">➕</span> Add New Book
+            {t.addManually}
           </h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -110,20 +112,20 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">ISBN (Optional)</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.isbnOptional}</label>
               <input
                 type="text"
                 name="isbn"
                 value={formData.isbn || ''}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Leave empty to auto-generate"
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
+                placeholder={t.isbnAutoGenerate}
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
-            
+
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Title <span className="text-red-500">*</span></label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.title} <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 name="title"
@@ -131,82 +133,86 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 required
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-gray-900 dark:text-gray-100"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Authors</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.authors}</label>
               <input
                 type="text"
                 name="authors"
                 value={formData.authors || ''}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Publisher</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.publisher}</label>
               <input
                 type="text"
                 name="publisher"
                 value={formData.publisher || ''}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Published Date</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.publishedDate}</label>
               <input
                 type="text"
                 name="published_date"
                 value={formData.published_date || ''}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Cover URL</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.coverUrl}</label>
               <input
                 type="text"
                 name="cover_url"
                 value={formData.cover_url || ''}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
 
              <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.status}</label>
               <select
                 name="status"
                 value={formData.status || 'unread'}
                 onChange={handleChange}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-gray-100"
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               >
-                <option value="unread">Unread</option>
-                <option value="reading">Reading</option>
-                <option value="completed">Completed</option>
+                <option value="wishlist">{t.statusWishlist}</option>
+                <option value="ordered">{t.statusOrdered}</option>
+                <option value="purchased_unread">{t.statusPurchasedUnread}</option>
+                <option value="unread">{t.statusUnread}</option>
+                <option value="reading">{t.statusReading}</option>
+                <option value="paused">{t.statusPaused}</option>
+                <option value="done">{t.statusDone}</option>
               </select>
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.description}</label>
             <textarea
               name="description"
               value={formData.description || ''}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               rows={4}
-              className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-gray-900 dark:text-gray-100"
+              className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"
             />
           </div>
         </form>
@@ -216,7 +222,7 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
             onClick={onClose}
             className="px-6 py-2.5 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 font-medium transition-all"
           >
-            Cancel
+            {t.cancel}
           </button>
           <button
             onClick={saveChanges}
@@ -226,11 +232,11 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
             {isSaving ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Adding...
+                {t.adding}
               </>
             ) : (
               <>
-                <span>Add Book</span>
+                <span>{t.addBook}</span>
                 <span className="text-xs opacity-70 bg-black/20 px-1.5 py-0.5 rounded ml-1">Ctrl+S</span>
               </>
             )}
