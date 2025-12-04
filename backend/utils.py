@@ -1,9 +1,79 @@
 import requests
 import os
+import re
 
 OPENBD_API_URL = "https://api.openbd.jp/v1/get"
 GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes"
 RAKUTEN_BOOKS_API_URL = "https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404"
+
+# Volume number extraction patterns (ordered by priority)
+VOLUME_PATTERNS = [
+    # Japanese patterns
+    r'[（(](\d+)[)）]',                    # （1）, (1)
+    r'第(\d+)[巻話集号]',                   # 第1巻, 第1話, 第1集, 第1号
+    r'(\d+)[巻話集号]$',                   # 1巻, 1話 (at end)
+    r'\s+(\d+)$',                          # "Title 1" (number at end)
+    r'[Vv][Oo][Ll]\.?\s*(\d+)',            # Vol.1, VOL 1, vol1
+    r'[#＃](\d+)',                         # #1, ＃1
+    r'[【\[](\d+)[】\]]',                   # 【1】, [1]
+]
+
+def extract_volume_number(title: str) -> int | None:
+    """
+    Extract volume number from a book title.
+    Returns None if no volume number is found.
+    """
+    if not title:
+        return None
+    
+    for pattern in VOLUME_PATTERNS:
+        match = re.search(pattern, title)
+        if match:
+            try:
+                return int(match.group(1))
+            except (ValueError, IndexError):
+                continue
+    return None
+
+def clean_title(title: str) -> str:
+    """
+    Clean a book title by removing volume numbers and extra whitespace.
+    This creates a normalized series title.
+    """
+    if not title:
+        return title
+    
+    cleaned = title
+    
+    # Remove volume number patterns
+    patterns_to_remove = [
+        r'\s*[（(]\d+[)）]\s*',             # （1）, (1)
+        r'\s*第\d+[巻話集号]\s*',           # 第1巻
+        r'\s+\d+[巻話集号]\s*$',            # 1巻 at end
+        r'\s+\d+\s*$',                     # trailing number
+        r'\s*[Vv][Oo][Ll]\.?\s*\d+\s*',    # Vol.1
+        r'\s*[#＃]\d+\s*',                 # #1
+        r'\s*[【\[]\d+[】\]]\s*',           # 【1】, [1]
+    ]
+    
+    for pattern in patterns_to_remove:
+        cleaned = re.sub(pattern, '', cleaned)
+    
+    # Clean up extra whitespace
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    
+    # Remove trailing punctuation that might be left over
+    cleaned = re.sub(r'[\s\-－―:：]+$', '', cleaned).strip()
+    
+    return cleaned
+
+def extract_series_title(title: str, series_from_api: str = None) -> str:
+    """
+    Get series title: prefer API-provided series name, fall back to cleaned title.
+    """
+    if series_from_api and series_from_api.strip():
+        return series_from_api.strip()
+    return clean_title(title)
 
 def fetch_rakuten_books_data(isbn: str):
     """
@@ -97,6 +167,7 @@ def fetch_google_books_data(isbn: str):
 def fetch_book_data(isbn: str):
     """
     Fetch book data from OpenBD API, falling back to Rakuten Books, then Google Books API if needed.
+    Also extracts volume number and cleans up series title.
     """
     book_data = None
     
@@ -146,5 +217,18 @@ def fetch_book_data(isbn: str):
             elif not book_data.get("cover_url") and google_data.get("cover_url"):
                 # Only fill in the missing cover
                 book_data["cover_url"] = google_data["cover_url"]
+    
+    # 4. Extract volume number and clean up series title
+    if book_data and book_data.get("title"):
+        title = book_data["title"]
+        
+        # Extract volume number from title
+        volume = extract_volume_number(title)
+        if volume is not None:
+            book_data["volume_number"] = volume
+        
+        # Set series_title: prefer API-provided, fallback to cleaned title
+        api_series = book_data.get("series_title")
+        book_data["series_title"] = extract_series_title(title, api_series)
                 
     return book_data
