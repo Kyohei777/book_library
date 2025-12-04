@@ -173,6 +173,20 @@ def lookup_isbn(isbn: str):
         return book_data
     raise HTTPException(status_code=404, detail="Book not found")
 
+@app.get("/series")
+def get_series_list(db: Session = Depends(get_db)):
+    """
+    Get list of unique series titles from the database.
+    """
+    series = db.query(Book.series_title).filter(
+        Book.series_title.isnot(None),
+        Book.series_title != ''
+    ).distinct().all()
+    
+    # Extract and sort series titles
+    series_list = sorted([s[0] for s in series if s[0]])
+    return {"series": series_list}
+
 @app.get("/search/title")
 def search_by_title(query: str):
     """

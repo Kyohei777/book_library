@@ -20,10 +20,28 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
     description: '',
     cover_url: '',
     status: 'unread',
+    series_title: '',
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [existingSeries, setExistingSeries] = useState<string[]>([]);
+
+  // Fetch existing series on mount
+  useEffect(() => {
+    const fetchSeries = async () => {
+      try {
+        const response = await fetch('/api/series');
+        if (response.ok) {
+          const data = await response.json();
+          setExistingSeries(data.series || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch series:', error);
+      }
+    };
+    fetchSeries();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -55,6 +73,8 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
           published_date: data.published_date || prev.published_date,
           description: data.description || prev.description,
           cover_url: data.cover_url || prev.cover_url,
+          series_title: data.series_title || prev.series_title,
+          volume_number: data.volume_number || prev.volume_number,
         }));
       } else {
         setSearchError(t.bookNotFound || '本が見つかりませんでした');
@@ -254,6 +274,28 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
                 <option value="paused">{t.statusPaused}</option>
                 <option value="done">{t.statusDone}</option>
               </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.seriesTitle}</label>
+              <input
+                type="text"
+                name="series_title"
+                value={formData.series_title || ''}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                list="series-list"
+                placeholder={t.seriesTitlePlaceholder}
+                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              />
+              <datalist id="series-list">
+                {existingSeries.map((series) => (
+                  <option key={series} value={series} />
+                ))}
+              </datalist>
+              {existingSeries.length > 0 && (
+                <p className="text-xs text-gray-500">既存シリーズ: {existingSeries.length}件</p>
+              )}
             </div>
           </div>
 
