@@ -187,6 +187,85 @@ def get_series_list(db: Session = Depends(get_db)):
     series_list = sorted([s[0] for s in series if s[0]])
     return {"series": series_list}
 
+@app.get("/test/compare-apis/{isbn}")
+def compare_apis(isbn: str):
+    """
+    Test endpoint to compare data from all three APIs for the same ISBN.
+    Useful for development and debugging.
+    """
+    from utils import fetch_rakuten_books_data, fetch_google_books_data, extract_volume_number, clean_title
+    
+    results = {
+        "isbn": isbn,
+        "openbd": None,
+        "rakuten": None,
+        "google": None,
+        "merged": None
+    }
+    
+    # 1. OpenBD
+    try:
+        response = requests.get(f"https://api.openbd.jp/v1/get?isbn={isbn}")
+        if response.status_code == 200:
+            data = response.json()
+            if data and data[0]:
+                book_info = data[0]['summary']
+                results["openbd"] = {
+                    "title": book_info.get("title"),
+                    "authors": book_info.get("author"),
+                    "publisher": book_info.get("publisher"),
+                    "published_date": book_info.get("pubdate"),
+                    "cover_url": book_info.get("cover"),
+                    "series": book_info.get("series"),
+                }
+    except Exception as e:
+        results["openbd"] = {"error": str(e)}
+    
+    # 2. Rakuten
+    try:
+        rakuten_data = fetch_rakuten_books_data(isbn)
+        if rakuten_data:
+            results["rakuten"] = {
+                "title": rakuten_data.get("title"),
+                "authors": rakuten_data.get("authors"),
+                "publisher": rakuten_data.get("publisher"),
+                "published_date": rakuten_data.get("published_date"),
+                "cover_url": rakuten_data.get("cover_url"),
+                "series": rakuten_data.get("series_title"),
+            }
+    except Exception as e:
+        results["rakuten"] = {"error": str(e)}
+    
+    # 3. Google Books
+    try:
+        google_data = fetch_google_books_data(isbn)
+        if google_data:
+            results["google"] = {
+                "title": google_data.get("title"),
+                "authors": google_data.get("authors"),
+                "publisher": google_data.get("publisher"),
+                "published_date": google_data.get("published_date"),
+                "cover_url": google_data.get("cover_url"),
+                "series": google_data.get("series_title"),
+            }
+    except Exception as e:
+        results["google"] = {"error": str(e)}
+    
+    # 4. Merged (what we actually use)
+    merged = fetch_book_data(isbn)
+    if merged:
+        results["merged"] = {
+            "title": merged.get("title"),
+            "authors": merged.get("authors"),
+            "publisher": merged.get("publisher"),
+            "published_date": merged.get("published_date"),
+            "cover_url": merged.get("cover_url"),
+            "series_title": merged.get("series_title"),
+            "volume_number": merged.get("volume_number"),
+        }
+    
+    return results
+
 @app.get("/search/title")
 def search_by_title(query: str):
     """
