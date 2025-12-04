@@ -5,6 +5,8 @@ from typing import List, Optional
 from pydantic import BaseModel
 from database import Base, engine, get_db, Book
 from utils import fetch_book_data
+import requests
+import os
 
 # Initialize Database
 Base.metadata.create_all(bind=engine)
@@ -25,6 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from datetime import datetime
+
 # Pydantic Models
 class BookCreate(BaseModel):
     isbn: str
@@ -37,6 +41,17 @@ class BookCreate(BaseModel):
     status: Optional[str] = "unread"
     location: Optional[str] = None
     series_title: Optional[str] = None
+    purchased_date: Optional[datetime] = None
+    reading_start_date: Optional[datetime] = None
+    reading_end_date: Optional[datetime] = None
+    rating: Optional[str] = None
+    notes: Optional[str] = None
+    tags: Optional[str] = None
+    lent_to: Optional[str] = None
+    lent_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    volume_number: Optional[int] = None
+    is_series_representative: Optional[bool] = False
 
 class BookUpdate(BaseModel):
     title: Optional[str] = None
@@ -48,8 +63,17 @@ class BookUpdate(BaseModel):
     status: Optional[str] = None
     location: Optional[str] = None
     series_title: Optional[str] = None
-
-from datetime import datetime
+    purchased_date: Optional[datetime] = None
+    reading_start_date: Optional[datetime] = None
+    reading_end_date: Optional[datetime] = None
+    rating: Optional[str] = None
+    notes: Optional[str] = None
+    tags: Optional[str] = None
+    lent_to: Optional[str] = None
+    lent_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    volume_number: Optional[int] = None
+    is_series_representative: Optional[bool] = None
 
 class BookResponse(BaseModel):
     isbn: str
@@ -63,6 +87,17 @@ class BookResponse(BaseModel):
     location: Optional[str] = None
     series_title: Optional[str] = None
     created_at: datetime
+    purchased_date: Optional[datetime] = None
+    reading_start_date: Optional[datetime] = None
+    reading_end_date: Optional[datetime] = None
+    rating: Optional[str] = None
+    notes: Optional[str] = None
+    tags: Optional[str] = None
+    lent_to: Optional[str] = None
+    lent_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    volume_number: Optional[int] = None
+    is_series_representative: Optional[bool] = None
 
     class Config:
         from_attributes = True
@@ -124,6 +159,127 @@ def delete_book(isbn: str, db: Session = Depends(get_db)):
     book = db.query(Book).filter(Book.isbn == isbn).first()
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
-    
+
     db.delete(book)
     db.commit()
+
+@app.get("/search/title")
+def search_by_title(query: str):
+    """
+    Search books by title using Rakuten Books and Google Books APIs
+    """
+    results = []
+    seen_isbns = set()
+
+    # Rakuten Books API
+    rakuten_app_id = os.getenv("RAKUTEN_APP_ID")
+    if rakuten_app_id:
+        try:
+            rakuten_url = "https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404"
+            params = {"applicationId": rakuten_app_id, "title": query, "hits": 20}
+            response = requests.get(rakuten_url, params=params, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                for item in data.get("Items", []):
+                    book = item.get("Item", {})
+                    isbn = book.get("isbn")
+                    if isbn and isbn not in seen_isbns:
+                        seen_isbns.add(isbn)
+                        results.append({
+                            "isbn": isbn,
+                            "title": book.get("title", ""),
+                            "authors": book.get("author", ""),
+                            "publisher": book.get("publisherName", ""),
+                            "cover_url": book.get("largeImageUrl", ""),
+                            "description": book.get("itemCaption", "")
+                        })
+        except Exception as e:
+            print(f"Rakuten API error: {e}")
+
+    # Google Books API
+    try:
+        google_url = "https://www.googleapis.com/books/v1/volumes"
+        params = {"q": query, "maxResults": 20}
+        response = requests.get(google_url, params=params, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            for item in data.get("items", []):
+                volume_info = item.get("volumeInfo", {})
+                identifiers = volume_info.get("industryIdentifiers", [])
+                isbn = None
+                for identifier in identifiers:
+                    if identifier.get("type") in ["ISBN_13", "ISBN_10"]:
+                        isbn = identifier.get("identifier")
+                        break
+
+                title = volume_info.get("title", "")
+                if isbn and isbn not in seen_isbns:
+                    seen_isbns.add(isbn)
+                    results.append({
+                        "isbn": isbn,
+                        "title": title,
+                        "authors": ", ".join(volume_info.get("authors", [])),
+                        "publisher": volume_info.get("publisher", ""),
+                        "cover_url": volume_info.get("imageLinks", {}).get("thumbnail", ""),
+                        "description": volume_info.get("description", "")
+                    })
+    except Exception as e:
+        print(f"Google Books API error: {e}")
+
+    return results[:30]
+
+@app.get("/books/find-series")
+def find_series(isbn: str, title: str, db: Session = Depends(get_db)):
+    """
+    Find books in the same series by searching Rakuten API
+    """
+    # Extract series name by removing volume numbers
+    import re
+    series_base = re.sub(r'\s*[\(（]?\d+[\)）]?\s*$', '', title)
+    series_base = re.sub(r'\s*第?\d+[巻話集号]?\s*$', '', series_base)
+    series_base = re.sub(r'\s*vol\.?\s*\d+.*$', '', series_base, flags=re.IGNORECASE)
+
+    # Get owned ISBNs
+    owned_isbns = {book.isbn for book in db.query(Book).all()}
+
+    results = []
+    rakuten_app_id = os.getenv("RAKUTEN_APP_ID")
+
+    if rakuten_app_id:
+        try:
+            # Search for series books
+            rakuten_url = "https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404"
+            params = {"applicationId": rakuten_app_id, "title": series_base, "hits": 50}
+            response = requests.get(rakuten_url, params=params, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                for item in data.get("Items", []):
+                    book = item.get("Item", {})
+                    book_isbn = book.get("isbn")
+                    book_title = book.get("title", "")
+
+                    # Extract volume number
+                    volume_match = re.search(r'[\(（]?(\d+)[\)）]?', book_title)
+                    if not volume_match:
+                        volume_match = re.search(r'第?(\d+)[巻話集号]', book_title)
+                    if not volume_match:
+                        volume_match = re.search(r'vol\.?\s*(\d+)', book_title, flags=re.IGNORECASE)
+
+                    volume = int(volume_match.group(1)) if volume_match else 0
+
+                    if book_isbn:
+                        results.append({
+                            "isbn": book_isbn,
+                            "title": book_title,
+                            "authors": book.get("author", ""),
+                            "cover_url": book.get("largeImageUrl", ""),
+                            "volume": volume,
+                            "already_owned": book_isbn in owned_isbns
+                        })
+        except Exception as e:
+            print(f"Rakuten API error: {e}")
+
+    # Sort by volume number
+    results.sort(key=lambda x: x["volume"])
+
+    return {"books": results}

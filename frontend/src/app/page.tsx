@@ -2,16 +2,22 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useLibrary } from '@/hooks/useLibrary';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { BookCard } from '@/components/BookCard';
 import { EditBookModal } from '@/components/EditBookModal';
 import { ScannerModal } from '@/components/ScannerModal';
 import { ManualAddModal } from '@/components/ManualAddModal';
 import { BookshelfView } from '@/components/BookshelfView';
 import { GroupSection } from '@/components/GroupSection';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { TitleSearchModal } from '@/components/TitleSearchModal';
+import { SeriesBulkModal } from '@/components/SeriesBulkModal';
+import { StatsDashboard } from '@/components/StatsDashboard';
+import { BottomNav } from '@/components/BottomNav';
 import { Book } from '@/types';
 
 export default function Home() {
+  const { language, setLanguage, t } = useLanguage();
+
   const {
     books,
     groupedBooks,
@@ -36,7 +42,16 @@ export default function Home() {
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isManualAddModalOpen, setIsManualAddModalOpen] = useState(false);
+  const [isTitleSearchOpen, setIsTitleSearchOpen] = useState(false);
+  const [isSeriesBulkOpen, setIsSeriesBulkOpen] = useState(false);
+  const [seriesBulkBook, setSeriesBulkBook] = useState<{ isbn: string; title: string } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const isProcessingScanRef = useRef(false);
+
+  // Filter books by status
+  const filteredBooks = statusFilter
+    ? books.filter(book => book.status === statusFilter)
+    : books;
 
   const handleScan = async (isbn: string) => {
     if (isProcessingScanRef.current) return;
@@ -73,6 +88,32 @@ export default function Home() {
     setIsEditModalOpen(true);
   };
 
+  const handleTitleSearchSelect = async (bookData: any) => {
+    setIsTitleSearchOpen(false);
+    if (bookData.isbn) {
+      await registerBook(bookData.isbn);
+    } else {
+      // No ISBN, add manually with available data
+      await addBook({
+        isbn: `MANUAL-${Date.now()}`,
+        title: bookData.title,
+        authors: bookData.authors,
+        publisher: bookData.publisher,
+        cover_url: bookData.cover_url,
+        description: bookData.description,
+        status: 'wishlist'
+      });
+    }
+  };
+
+  const handleSeriesBulkRegister = async (isbns: string[]) => {
+    for (const isbn of isbns) {
+      await registerBook(isbn);
+    }
+    setIsSeriesBulkOpen(false);
+    setSeriesBulkBook(null);
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ctrl + Q for Quick Add
@@ -93,14 +134,23 @@ export default function Home() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             {/* Title & Scanner Button (Mobile) */}
             <div className="flex items-center justify-between">
-              <h1 
-                className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 cursor-pointer"
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              >
-                My Library
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1
+                  className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 cursor-pointer"
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                >
+                  {t.myLibrary}
+                </h1>
+                {/* Language Toggle */}
+                <button
+                  onClick={() => setLanguage(language === 'ja' ? 'en' : 'ja')}
+                  className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                  title="Switch Language / 言語切り替え"
+                >
+                  {language === 'ja' ? 'EN' : 'JA'}
+                </button>
+              </div>
               <div className="flex items-center gap-2 md:hidden">
-                <ThemeToggle />
                 <button
                   onClick={() => setIsScannerOpen(true)}
                   className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-lg transition-all active:scale-95"
@@ -124,7 +174,7 @@ export default function Home() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search titles, authors..."
+                  placeholder={t.searchPlaceholder}
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-xl leading-5 bg-gray-50 dark:bg-gray-800 placeholder-gray-400 focus:outline-none focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all sm:text-sm shadow-sm"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -132,7 +182,7 @@ export default function Home() {
               </div>
 
               {/* View Mode & Sort */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 no-scrollbar shrink-0">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
                 <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg shrink-0">
                   <button
                     onClick={() => setViewMode('grid')}
@@ -140,7 +190,7 @@ export default function Home() {
                       viewMode === 'grid' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
-                    Grid
+                    {t.grid}
                   </button>
                   <button
                     onClick={() => setViewMode('author_group')}
@@ -148,7 +198,7 @@ export default function Home() {
                       viewMode === 'author_group' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
-                    Author
+                    {t.author}
                   </button>
                   <button
                     onClick={() => setViewMode('series_group')}
@@ -156,7 +206,7 @@ export default function Home() {
                       viewMode === 'series_group' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
-                    Series
+                    {t.series}
                   </button>
                   <button
                     onClick={() => setViewMode('bookshelf')}
@@ -167,7 +217,15 @@ export default function Home() {
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
                       <path d="M2 4.25A2.25 2.25 0 014.25 2h11.5A2.25 2.25 0 0118 4.25v8.5A2.25 2.25 0 0115.75 15h-3.105a3.501 3.501 0 001.1 1.677A.75.75 0 0113.26 18H6.74a.75.75 0 01-.484-1.323A3.501 3.501 0 007.355 15H4.25A2.25 2.25 0 012 12.75v-8.5z" />
                     </svg>
-                    Shelf
+                    {t.shelf}
+                  </button>
+                  <button
+                    onClick={() => setViewMode('stats' as any)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      viewMode === 'stats' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    📊 {t.stats}
                   </button>
                 </div>
 
@@ -176,13 +234,21 @@ export default function Home() {
                   onChange={(e) => setSortOption(e.target.value as any)}
                   className="block w-32 pl-3 pr-8 py-1.5 text-xs border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg bg-gray-50 dark:bg-gray-800"
                 >
-                  <option value="created_desc">Newest</option>
-                  <option value="created_asc">Oldest</option>
-                  <option value="title_asc">Title A-Z</option>
-                  <option value="author_asc">Author A-Z</option>
+                  <option value="created_desc">{t.newest}</option>
+                  <option value="created_asc">{t.oldest}</option>
+                  <option value="title_asc">{t.titleAZ}</option>
+                  <option value="author_asc">{t.authorAZ}</option>
                 </select>
 
-                <ThemeToggle className="hidden md:block" />
+                <button
+                  onClick={() => setIsTitleSearchOpen(true)}
+                  className="hidden md:flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 dark:shadow-none transition-all active:scale-95"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                  {t.titleSearch}
+                </button>
 
                 <button
                   onClick={() => setIsScannerOpen(true)}
@@ -192,10 +258,62 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75zM16.5 19.5h.75v.75h-.75v-.75z" />
                   </svg>
-                  Scan
+                  {t.scan}
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mt-3">
+            <button
+              onClick={() => setStatusFilter(null)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                statusFilter === null ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              {t.allBooks}
+            </button>
+            <button
+              onClick={() => setStatusFilter('wishlist')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                statusFilter === 'wishlist' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              {t.wishlist}
+            </button>
+            <button
+              onClick={() => setStatusFilter('ordered')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                statusFilter === 'ordered' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              {t.ordered}
+            </button>
+            <button
+              onClick={() => setStatusFilter('purchased_unread')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                statusFilter === 'purchased_unread' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              {t.toRead}
+            </button>
+            <button
+              onClick={() => setStatusFilter('reading')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                statusFilter === 'reading' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              {t.reading}
+            </button>
+            <button
+              onClick={() => setStatusFilter('done')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                statusFilter === 'done' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              {t.done}
+            </button>
           </div>
         </div>
       </div>
@@ -214,36 +332,40 @@ export default function Home() {
           </div>
         )}
 
-        {loading && books.length === 0 ? (
+        {loading && filteredBooks.length === 0 ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
           </div>
-        ) : books.length === 0 ? (
+        ) : filteredBooks.length === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-dashed border-gray-300 dark:border-gray-700">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="mx-auto h-12 w-12 text-gray-400 mb-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No books found</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by scanning a book ISBN.</p>
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">{t.noBooksFound}</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t.getStartedMessage}</p>
             <div className="mt-6">
               <button
                 onClick={() => setIsScannerOpen(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
-                Scan Book
+                {t.scanBook}
               </button>
             </div>
           </div>
+        ) : viewMode === 'stats' ? (
+          <div className="animate-in fade-in duration-500">
+            <StatsDashboard books={books} />
+          </div>
         ) : viewMode === 'bookshelf' ? (
           <div className="animate-in fade-in duration-500">
-            <BookshelfView 
-              books={books} 
+            <BookshelfView
+              books={filteredBooks}
               onBookClick={openEditModal}
             />
           </div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 animate-in fade-in duration-500">
-            {books.map((book) => (
+            {filteredBooks.map((book) => (
               <BookCard 
                 key={book.isbn} 
                 book={book} 
@@ -322,13 +444,13 @@ export default function Home() {
       <button
         onClick={() => setIsManualAddModalOpen(true)}
         className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-40 group"
-        title="Add Book (Ctrl+Q)"
+        title={t.addBookShortcut}
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
         <span className="absolute right-full mr-3 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-          Add Book (Ctrl+Q)
+          {t.addBookShortcut}
         </span>
       </button>
 
@@ -358,9 +480,34 @@ export default function Home() {
         />
       )}
 
+      {isTitleSearchOpen && (
+        <TitleSearchModal
+          onClose={() => setIsTitleSearchOpen(false)}
+          onSelectBook={handleTitleSearchSelect}
+        />
+      )}
+
+      {isSeriesBulkOpen && seriesBulkBook && (
+        <SeriesBulkModal
+          isbn={seriesBulkBook.isbn}
+          title={seriesBulkBook.title}
+          onClose={() => {
+            setIsSeriesBulkOpen(false);
+            setSeriesBulkBook(null);
+          }}
+          onRegisterBooks={handleSeriesBulkRegister}
+        />
+      )}
+
+      <BottomNav
+        currentView={viewMode}
+        onViewChange={(view) => setViewMode(view as any)}
+        onScanClick={() => setIsScannerOpen(true)}
+      />
+
       <footer className="py-6 text-center text-[10px] text-gray-400">
         <p>
-          Supported by <a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener noreferrer" className="hover:underline">Rakuten Developers</a>
+          {t.supportedBy} <a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener noreferrer" className="hover:underline">Rakuten Developers</a>
         </p>
       </footer>
     </main>
