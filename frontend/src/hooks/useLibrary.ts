@@ -167,13 +167,11 @@ export const useLibrary = () => {
 
   // シリーズ名抽出ロジック
   const deriveSeriesTitle = (book: Book): string => {
-    // ユーザー要望: book.series_title は出版社名が含まれるため使用しない
-    // タイトルの「.」までをシリーズ名とする規則を優先
-    const dotIndex = book.title.indexOf('.');
-    if (dotIndex !== -1) {
-      return book.title.substring(0, dotIndex).trim();
+    // バックエンドで整備された series_title を使用
+    if (book.series_title) {
+      return book.series_title;
     }
-    // 「.」がない場合はシリーズものとして認識できないため "Other" (または単独)
+    // series_titleがない場合はタイトルそのものを使用（またはOther）
     return "Other";
   };
 

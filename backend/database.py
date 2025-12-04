@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, Boolean, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -24,6 +24,7 @@ class Book(Base):
     status = Column(String, default="unread")  # wishlist, ordered, purchased_unread, reading, done, paused
     location = Column(String)
     series_title = Column(String)
+    label = Column(String, nullable=True)  # Publisher label (e.g., 電撃文庫)
     created_at = Column(DateTime, default=datetime.now)
 
     # Wishlist and reading tracking
@@ -44,7 +45,7 @@ class Book(Base):
     due_date = Column(DateTime, nullable=True)  # When it should be returned
 
     # Series and bookshelf management
-    volume_number = Column(Integer, nullable=True)  # Volume number extracted from title
+    volume_number = Column(Float, nullable=True)  # Volume number extracted from title (Float for 8.5 etc)
     is_series_representative = Column(Boolean, default=False)  # Display this as series cover in bookshelf view
 
 def init_db():

@@ -14,6 +14,7 @@ import { SeriesBulkModal } from '@/components/SeriesBulkModal';
 import { StatsDashboard } from '@/components/StatsDashboard';
 import { BottomNav } from '@/components/BottomNav';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { ScanResultModal } from '@/components/ScanResultModal';
 import { Book } from '@/types';
 
 export default function Home() {
@@ -47,6 +48,8 @@ export default function Home() {
   const [isSeriesBulkOpen, setIsSeriesBulkOpen] = useState(false);
   const [seriesBulkBook, setSeriesBulkBook] = useState<{ isbn: string; title: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [devMode, setDevMode] = useState(false);
+  const [pendingScanIsbn, setPendingScanIsbn] = useState<string | null>(null);
   const isProcessingScanRef = useRef(false);
 
   // Filter books by status
@@ -57,19 +60,39 @@ export default function Home() {
   const handleScan = async (isbn: string) => {
     if (isProcessingScanRef.current) return;
     isProcessingScanRef.current = true;
-    setIsScanning(true);
     setIsScannerOpen(false); // Close immediately
 
     const exists = books.some(b => b.isbn === isbn);
     if (exists) {
       // Already exists logic if needed
+      isProcessingScanRef.current = false;
+      return;
     }
 
+    // If dev mode is on, show comparison modal first
+    if (devMode) {
+      setPendingScanIsbn(isbn);
+      isProcessingScanRef.current = false;
+      return;
+    }
+
+    // Normal flow: register immediately
+    setIsScanning(true);
     await registerBook(isbn);
     
     setTimeout(() => {
       setIsScanning(false);
       isProcessingScanRef.current = false;
+    }, 2000);
+  };
+
+  const confirmScanResult = async () => {
+    if (!pendingScanIsbn) return;
+    setIsScanning(true);
+    await registerBook(pendingScanIsbn);
+    setPendingScanIsbn(null);
+    setTimeout(() => {
+      setIsScanning(false);
     }, 2000);
   };
 
@@ -151,6 +174,15 @@ export default function Home() {
                   {language === 'ja' ? 'EN' : 'JA'}
                 </button>
                 <ThemeToggle />
+                <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer" title="開発者モード: スキャン時にAPI比較を表示">
+                  <input
+                    type="checkbox"
+                    checked={devMode}
+                    onChange={(e) => setDevMode(e.target.checked)}
+                    className="rounded"
+                  />
+                  🔧
+                </label>
               </div>
               <div className="flex items-center gap-2 md:hidden">
                 <button
@@ -498,6 +530,14 @@ export default function Home() {
             setSeriesBulkBook(null);
           }}
           onRegisterBooks={handleSeriesBulkRegister}
+        />
+      )}
+
+      {pendingScanIsbn && (
+        <ScanResultModal
+          isbn={pendingScanIsbn}
+          onConfirm={confirmScanResult}
+          onCancel={() => setPendingScanIsbn(null)}
         />
       )}
 

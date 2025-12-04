@@ -63,7 +63,16 @@ export function EditBookModal({ book, onUpdate, onClose }: EditBookModalProps) {
   const saveChanges = async () => {
     setIsSaving(true);
     try {
-      await onUpdate(book.isbn, formData);
+      // Convert empty date strings to null for API
+      const dataToSend = { ...formData };
+      const dateFields = ['purchased_date', 'reading_start_date', 'reading_end_date', 'lent_date', 'due_date'];
+      dateFields.forEach(field => {
+        if (dataToSend[field as keyof typeof dataToSend] === '') {
+          (dataToSend as any)[field] = null;
+        }
+      });
+      
+      await onUpdate(book.isbn, dataToSend);
       onClose();
     } catch (error) {
       console.error("Failed to save", error);

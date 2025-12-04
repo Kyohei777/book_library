@@ -41,6 +41,7 @@ class BookCreate(BaseModel):
     status: Optional[str] = "unread"
     location: Optional[str] = None
     series_title: Optional[str] = None
+    label: Optional[str] = None
     purchased_date: Optional[datetime] = None
     reading_start_date: Optional[datetime] = None
     reading_end_date: Optional[datetime] = None
@@ -63,6 +64,7 @@ class BookUpdate(BaseModel):
     status: Optional[str] = None
     location: Optional[str] = None
     series_title: Optional[str] = None
+    label: Optional[str] = None
     purchased_date: Optional[datetime] = None
     reading_start_date: Optional[datetime] = None
     reading_end_date: Optional[datetime] = None
@@ -86,6 +88,7 @@ class BookResponse(BaseModel):
     status: str
     location: Optional[str] = None
     series_title: Optional[str] = None
+    label: Optional[str] = None
     created_at: datetime
     purchased_date: Optional[datetime] = None
     reading_start_date: Optional[datetime] = None
@@ -104,6 +107,9 @@ class BookResponse(BaseModel):
 
 @app.post("/books", response_model=BookResponse, status_code=status.HTTP_201_CREATED)
 def create_book(book_in: BookCreate, db: Session = Depends(get_db)):
+    from utils import normalize_title, extract_volume_number, clean_title
+    import re
+    
     # Check if book already exists
     existing_book = db.query(Book).filter(Book.isbn == book_in.isbn).first()
     if existing_book:
@@ -116,16 +122,75 @@ def create_book(book_in: BookCreate, db: Session = Depends(get_db)):
     if not book_data.get("title"):
         fetched_data = fetch_book_data(book_in.isbn)
         if fetched_data:
-            # Merge fetched data, prioritizing user input (though user input is empty here)
-            # Actually, if user provided some fields, we should keep them.
-            # But fetch_book_data returns a dict.
             for key, value in fetched_data.items():
+                # Save API's series_title as label (it's usually publisher label like 電撃文庫)
+                if key == "series_title":
+                    if value and not book_data.get("label"):
+                        # Remove English part from label (e.g., "電撃文庫 = DENGEKI BUNKO" -> "電撃文庫")
+                        clean_label = re.sub(r'\s*[=＝]\s*[A-Za-z].*$', '', value).strip()
+                        book_data["label"] = clean_label
+                    continue
                 if key not in book_data or not book_data[key]:
                     book_data[key] = value
         else:
-            # Fallback if fetch fails and no title provided
             if "title" not in book_data:
                 book_data["title"] = "Unknown Title"
+    
+    # Always normalize title (remove English subtitles like "= The irregular...")
+    if book_data.get("title"):
+        book_data["title"] = normalize_title(book_data["title"])
+    
+    # Always extract volume number from title
+    if book_data.get("title"):
+        volume = extract_volume_number(book_data["title"])
+        if volume:
+            book_data["volume_number"] = volume
+    
+    # Always extract series title from title (ignore API's series_title which is usually label name)
+    if book_data.get("title"):
+        book_data["series_title"] = clean_title(book_data["title"])
+    
+    # Note: Title format unification is disabled because each book may have unique subtitles
+    # The series_title is used for grouping, while title preserves individual book info
+    # 
+    # Try to match title format with existing books in the same series
+    # if book_data.get("series_title"):
+    #     existing_series_books = db.query(Book).filter(
+    #         Book.series_title == book_data["series_title"]
+    #     ).all()
+    #     
+    #     if existing_series_books:
+    #         # Get the title format pattern from an existing book
+    #         sample_title = existing_series_books[0].title
+    #         sample_volume = existing_series_books[0].volume_number
+    #         
+    #         if sample_title and sample_volume and book_data.get("volume_number"):
+    #             # Extract the format pattern (e.g., "魔法科高校の劣等生. {num}" or "魔法科高校の劣等生 ({num})")
+    #             new_volume = book_data["volume_number"]
+    #             
+    #             # Try different patterns to match the existing format
+    #             patterns = [
+    #                 (rf'\.\s*{sample_volume}(\s*\([^)]+\))?$', f'. {new_volume}'),  # "Title. 1 (Subtitle)"
+    #                 (rf'[（(]{sample_volume}[)）]', f'({new_volume})'),  # "Title (1)"
+    #                 (rf'第{sample_volume}[巻話集号]', f'第{new_volume}巻'),  # "Title 第1巻"
+    #                 (rf'\s+{sample_volume}\s*$', f' {new_volume}'),  # "Title 1"
+    #             ]
+    #             
+    #             for pattern, replacement in patterns:
+    #                 if re.search(pattern, sample_title):
+    #                     # Apply the same format to the new title
+    #                     base_title = book_data["series_title"]
+    #                     # Extract subtitle if exists in original
+    #                     subtitle_match = re.search(rf'{sample_volume}\s*(\([^)]+\))', sample_title)
+    #                     subtitle_suffix = ""
+    #                     if subtitle_match:
+    #                         # Try to keep the subtitle format
+    #                         pass  # For now, just use the number
+    #                     
+    #                     new_title = re.sub(pattern, replacement, sample_title)
+    #                     new_title = re.sub(rf'{sample_volume}', str(new_volume), new_title, count=1)
+    #                     book_data["title"] = new_title
+    #                     break
 
     new_book = Book(**book_data)
     db.add(new_book)

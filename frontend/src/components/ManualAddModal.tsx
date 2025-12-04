@@ -26,6 +26,8 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [existingSeries, setExistingSeries] = useState<string[]>([]);
+  const [showApiComparison, setShowApiComparison] = useState(false);
+  const [apiComparison, setApiComparison] = useState<any>(null);
 
   // Fetch existing series on mount
   useEffect(() => {
@@ -78,6 +80,15 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
         }));
       } else {
         setSearchError(t.bookNotFound || '本が見つかりませんでした');
+      }
+
+      // Also fetch API comparison if in dev mode
+      if (showApiComparison) {
+        const compareResponse = await fetch(`/api/test/compare-apis/${isbn}`);
+        if (compareResponse.ok) {
+          const compareData = await compareResponse.json();
+          setApiComparison(compareData);
+        }
       }
     } catch (error) {
       console.error('ISBN lookup error:', error);
@@ -195,7 +206,54 @@ export function ManualAddModal({ onClose, onAdd }: ManualAddModalProps) {
               {searchError && (
                 <p className="text-sm text-red-500">{searchError}</p>
               )}
+              <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showApiComparison}
+                  onChange={(e) => setShowApiComparison(e.target.checked)}
+                  className="rounded"
+                />
+                🔧 開発者モード: API比較を表示
+              </label>
             </div>
+
+            {/* API Comparison Panel */}
+            {showApiComparison && apiComparison && (
+              <div className="col-span-full bg-gray-100 dark:bg-gray-900 p-4 rounded-xl space-y-3 text-xs">
+                <h3 className="font-bold text-sm">📊 API比較結果</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {['openbd', 'rakuten', 'google'].map((api) => (
+                    <div key={api} className="bg-white dark:bg-gray-800 p-3 rounded-lg">
+                      <h4 className="font-bold mb-2 text-indigo-600 dark:text-indigo-400">
+                        {api === 'openbd' ? '📚 OpenBD' : api === 'rakuten' ? '🛒 楽天' : '🔍 Google'}
+                      </h4>
+                      {apiComparison[api] ? (
+                        <div className="space-y-1">
+                          <p><span className="text-gray-500">タイトル:</span> {apiComparison[api].title || '-'}</p>
+                          <p><span className="text-gray-500">著者:</span> {apiComparison[api].authors || '-'}</p>
+                          <p><span className="text-gray-500">出版社:</span> {apiComparison[api].publisher || '-'}</p>
+                          <p><span className="text-gray-500">シリーズ:</span> {apiComparison[api].series || '-'}</p>
+                          <p><span className="text-gray-500">画像:</span> {apiComparison[api].cover_url ? '✅' : '❌'}</p>
+                        </div>
+                      ) : (
+                        <p className="text-gray-400">データなし</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {apiComparison.merged && (
+                  <div className="bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-lg mt-2">
+                    <h4 className="font-bold mb-2 text-indigo-700 dark:text-indigo-300">✨ マージ結果（実際に使用されるデータ）</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <p><span className="text-gray-500">タイトル:</span> {apiComparison.merged.title}</p>
+                      <p><span className="text-gray-500">シリーズ:</span> {apiComparison.merged.series_title}</p>
+                      <p><span className="text-gray-500">巻数:</span> {apiComparison.merged.volume_number ?? '-'}</p>
+                      <p><span className="text-gray-500">画像:</span> {apiComparison.merged.cover_url ? '✅' : '❌'}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t.title} <span className="text-red-500">*</span></label>
