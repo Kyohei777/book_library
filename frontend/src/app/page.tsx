@@ -182,11 +182,11 @@ export default function Home() {
               </div>
 
               {/* View Mode & Sort */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
-                <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg shrink-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap bg-gray-100 dark:bg-gray-800 p-1 rounded-lg gap-0.5">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-all ${
                       viewMode === 'grid' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
@@ -194,7 +194,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => setViewMode('author_group')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-all ${
                       viewMode === 'author_group' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
@@ -202,7 +202,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => setViewMode('series_group')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-all ${
                       viewMode === 'series_group' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
@@ -210,7 +210,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => setViewMode('bookshelf')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
+                    className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
                       viewMode === 'bookshelf' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
@@ -221,7 +221,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => setViewMode('stats' as any)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-all ${
                       viewMode === 'stats' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
                     }`}
                   >
@@ -232,7 +232,7 @@ export default function Home() {
                 <select
                   value={sortOption}
                   onChange={(e) => setSortOption(e.target.value as any)}
-                  className="block w-32 pl-3 pr-8 py-1.5 text-xs border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg bg-gray-50 dark:bg-gray-800"
+                  className="block w-28 pl-2 pr-6 py-1.5 text-xs border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg bg-gray-50 dark:bg-gray-800"
                 >
                   <option value="created_desc">{t.newest}</option>
                   <option value="created_asc">{t.oldest}</option>
@@ -242,9 +242,9 @@ export default function Home() {
 
                 <button
                   onClick={() => setIsTitleSearchOpen(true)}
-                  className="hidden md:flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 dark:shadow-none transition-all active:scale-95"
+                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700 shadow-md transition-all active:scale-95"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                   </svg>
                   {t.titleSearch}
@@ -252,9 +252,9 @@ export default function Home() {
 
                 <button
                   onClick={() => setIsScannerOpen(true)}
-                  className="hidden md:flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
+                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 shadow-md transition-all active:scale-95"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75zM16.5 19.5h.75v.75h-.75v-.75z" />
                   </svg>
