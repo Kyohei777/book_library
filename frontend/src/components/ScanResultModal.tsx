@@ -2,15 +2,32 @@
 
 import { useState, useEffect } from 'react';
 
+interface EditableBookData {
+  title: string;
+  authors: string;
+  series_title: string;
+  volume_number: number | null;
+  cover_url: string;
+  publisher: string;
+}
+
 interface ScanResultModalProps {
   isbn: string;
-  onConfirm: () => void;
+  onConfirm: (editedData: EditableBookData) => void;
   onCancel: () => void;
 }
 
 export function ScanResultModal({ isbn, onConfirm, onCancel }: ScanResultModalProps) {
   const [apiComparison, setApiComparison] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [editedData, setEditedData] = useState<EditableBookData>({
+    title: '',
+    authors: '',
+    series_title: '',
+    volume_number: null,
+    cover_url: '',
+    publisher: '',
+  });
 
   useEffect(() => {
     const fetchComparison = async () => {
@@ -19,6 +36,17 @@ export function ScanResultModal({ isbn, onConfirm, onCancel }: ScanResultModalPr
         if (response.ok) {
           const data = await response.json();
           setApiComparison(data);
+          // Initialize editable fields with merged data
+          if (data.merged) {
+            setEditedData({
+              title: data.merged.title || '',
+              authors: data.merged.authors || '',
+              series_title: data.merged.series_title || '',
+              volume_number: data.merged.volume_number ?? null,
+              cover_url: data.merged.cover_url || '',
+              publisher: data.merged.publisher || '',
+            });
+          }
         }
       } catch (error) {
         console.error('Failed to fetch API comparison:', error);
@@ -28,6 +56,10 @@ export function ScanResultModal({ isbn, onConfirm, onCancel }: ScanResultModalPr
     };
     fetchComparison();
   }, [isbn]);
+
+  const handleInputChange = (field: keyof EditableBookData, value: string | number | null) => {
+    setEditedData(prev => ({ ...prev, [field]: value }));
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -105,42 +137,82 @@ export function ScanResultModal({ isbn, onConfirm, onCancel }: ScanResultModalPr
                 ))}
               </div>
 
-              {/* Merged Result */}
-              {apiComparison.merged && (
-                <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl mt-4">
-                  <h4 className="font-bold mb-3 text-lg text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
-                    ✨ 実際に登録されるデータ（マージ結果）
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500 text-xs">タイトル</span>
-                      <p className="font-medium">{apiComparison.merged.title}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 text-xs">著者</span>
-                      <p>{apiComparison.merged.authors || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 text-xs">シリーズ名</span>
-                      <p className="font-medium text-indigo-600 dark:text-indigo-400">{apiComparison.merged.series_title || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 text-xs">巻数</span>
-                      <p className="font-bold text-xl">{apiComparison.merged.volume_number ?? '-'}</p>
-                    </div>
+              {/* Editable Merged Result */}
+              <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl mt-4">
+                <h4 className="font-bold mb-3 text-lg text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+                  ✏️ 登録データを編集
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="text-gray-500 text-xs block mb-1">タイトル</label>
+                    <input
+                      type="text"
+                      value={editedData.title}
+                      onChange={(e) => handleInputChange('title', e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
                   </div>
-                  {apiComparison.merged.cover_url && (
-                    <div className="mt-4">
-                      <span className="text-gray-500 text-xs">表紙画像</span>
-                      <img 
-                        src={apiComparison.merged.cover_url} 
-                        alt="Cover" 
-                        className="h-32 object-contain rounded shadow mt-1"
-                      />
-                    </div>
-                  )}
+                  <div>
+                    <label className="text-gray-500 text-xs block mb-1">著者</label>
+                    <input
+                      type="text"
+                      value={editedData.authors}
+                      onChange={(e) => handleInputChange('authors', e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-500 text-xs block mb-1">シリーズ名</label>
+                    <input
+                      type="text"
+                      value={editedData.series_title}
+                      onChange={(e) => handleInputChange('series_title', e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-500 text-xs block mb-1">巻数</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={editedData.volume_number ?? ''}
+                      onChange={(e) => handleInputChange('volume_number', e.target.value ? parseFloat(e.target.value) : null)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="例: 1, 8.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-500 text-xs block mb-1">出版社</label>
+                    <input
+                      type="text"
+                      value={editedData.publisher}
+                      onChange={(e) => handleInputChange('publisher', e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-500 text-xs block mb-1">表紙URL</label>
+                    <input
+                      type="text"
+                      value={editedData.cover_url}
+                      onChange={(e) => handleInputChange('cover_url', e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="https://..."
+                    />
+                  </div>
                 </div>
-              )}
+                {editedData.cover_url && (
+                  <div className="mt-4">
+                    <span className="text-gray-500 text-xs">プレビュー</span>
+                    <img 
+                      src={editedData.cover_url} 
+                      alt="Cover Preview" 
+                      className="h-32 object-contain rounded shadow mt-1"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <p className="text-gray-400 text-center py-8">データを取得できませんでした</p>
@@ -155,7 +227,7 @@ export function ScanResultModal({ isbn, onConfirm, onCancel }: ScanResultModalPr
             キャンセル
           </button>
           <button
-            onClick={onConfirm}
+            onClick={() => onConfirm(editedData)}
             className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg transition-all"
           >
             この内容で登録する

@@ -10,11 +10,15 @@ interface BookshelfViewProps {
 
 // シリーズ名抽出関数
 const deriveSeriesTitle = (book: Book): string => {
+  // バックエンドで整備された series_title を最優先で使用
+  if (book.series_title) {
+    return book.series_title;
+  }
   const dotIndex = book.title.indexOf('.');
   if (dotIndex !== -1) {
     return book.title.substring(0, dotIndex).trim();
   }
-  return book.series_title || "Other";
+  return "Other";
 };
 
 export function BookshelfView({ books, onBookClick }: BookshelfViewProps) {

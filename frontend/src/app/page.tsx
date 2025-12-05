@@ -49,6 +49,7 @@ export default function Home() {
   const [seriesBulkBook, setSeriesBulkBook] = useState<{ isbn: string; title: string } | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [devMode, setDevMode] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [pendingScanIsbn, setPendingScanIsbn] = useState<string | null>(null);
   const isProcessingScanRef = useRef(false);
 
@@ -76,9 +77,44 @@ export default function Home() {
       return;
     }
 
-    // Normal flow: register immediately
+    // Normal flow: fetch merged data first, then register with the same logic as dev mode
     setIsScanning(true);
-    await registerBook(isbn);
+    try {
+      const response = await fetch(`/api/test/compare-apis/${isbn}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.merged) {
+          // If series was not matched, show edit modal for user to manually set series
+          if (!data.merged.series_matched) {
+            // Show edit modal for first-time series registration
+            setPendingScanIsbn(isbn);
+            setIsScanning(false);
+            isProcessingScanRef.current = false;
+            return;
+          }
+          
+          // Series matched - register directly
+          await addBook({
+            isbn: isbn,
+            title: data.merged.title,
+            authors: data.merged.authors,
+            series_title: data.merged.series_title,
+            volume_number: data.merged.volume_number ?? undefined,
+            cover_url: data.merged.cover_url,
+            publisher: data.merged.publisher,
+          });
+        } else {
+          // Fallback if merged data is not available
+          await registerBook(isbn);
+        }
+      } else {
+        // Fallback on error
+        await registerBook(isbn);
+      }
+    } catch (error) {
+      console.error('Failed to fetch merged data:', error);
+      await registerBook(isbn);
+    }
     
     setTimeout(() => {
       setIsScanning(false);
@@ -86,10 +122,28 @@ export default function Home() {
     }, 2000);
   };
 
-  const confirmScanResult = async () => {
+  const confirmScanResult = async (editedData: {
+    title: string;
+    authors: string;
+    series_title: string;
+    volume_number: number | null;
+    cover_url: string;
+    publisher: string;
+  }) => {
     if (!pendingScanIsbn) return;
     setIsScanning(true);
-    await registerBook(pendingScanIsbn);
+    
+    // Use edited data to add book
+    await addBook({
+      isbn: pendingScanIsbn,
+      title: editedData.title,
+      authors: editedData.authors,
+      series_title: editedData.series_title,
+      volume_number: editedData.volume_number ?? undefined,
+      cover_url: editedData.cover_url,
+      publisher: editedData.publisher,
+    });
+    
     setPendingScanIsbn(null);
     setTimeout(() => {
       setIsScanning(false);
@@ -155,52 +209,90 @@ export default function Home() {
       {/* Header Area */}
       <div className="sticky top-0 z-30 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            {/* Title & Scanner Button (Mobile) */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h1
-                  className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 cursor-pointer"
-                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                >
-                  {t.myLibrary}
-                </h1>
-                {/* Language Toggle */}
-                <button
+          <div className="flex flex-col gap-4">
+            {/* Top Row: Title & Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
+              <h1
+                className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600 cursor-pointer shrink-0"
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              >
+                {t.myLibrary}
+              </h1>
+
+              {/* Right Side Actions: Lang, Theme, Dev, Filter, Scan, Add */}
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+                 {/* Language Toggle - Circular for uniformity */}
+                 <button
                   onClick={() => setLanguage(language === 'ja' ? 'en' : 'ja')}
-                  className="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                  className="flex items-center justify-center w-9 h-9 text-xs font-bold bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors border-none"
                   title="Switch Language / 言語切り替え"
                 >
                   {language === 'ja' ? 'EN' : 'JA'}
                 </button>
+
                 <ThemeToggle />
-                <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer" title="開発者モード: スキャン時にAPI比較を表示">
+
+                {/* Dev Mode Toggle */}
+                <label 
+                  className={`flex items-center justify-center w-9 h-9 rounded-full cursor-pointer transition-all text-xs ${
+                    devMode 
+                      ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400 shadow-sm ring-1 ring-amber-200 dark:ring-amber-800' 
+                      : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 grayscale'
+                  }`}
+                  title="Dev Mode / 開発者モード"
+                >
                   <input
                     type="checkbox"
                     checked={devMode}
                     onChange={(e) => setDevMode(e.target.checked)}
-                    className="rounded"
+                    className="hidden"
                   />
-                  🔧
+                  <span>🔧</span>
                 </label>
-              </div>
-              <div className="flex items-center gap-2 md:hidden">
+
+                {/* Filter Button */}
+                <button
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className={`flex items-center justify-center w-9 h-9 rounded-full transition-colors ${
+                    isFilterOpen || statusFilter 
+                      ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400' 
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                  title={t.filter || "Filter"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+                  </svg>
+                </button>
+                
+                {/* Scan Button */}
                 <button
                   onClick={() => setIsScannerOpen(true)}
-                  className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-lg transition-all active:scale-95"
+                  className="flex items-center justify-center w-9 h-9 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-lg transition-all active:scale-95"
+                  title={t.scanBook || "Scan Book"}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75zM16.5 19.5h.75v.75h-.75v-.75z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75zM16.5 19.5h.75v.75h-.75v-.75zM19.5 16.5h.75v.75h-.75v-.75z" />
+                  </svg>
+                </button>
+
+                {/* Add Button */}
+                <button
+                  onClick={() => setIsManualAddModalOpen(true)}
+                  className="flex items-center justify-center w-9 h-9 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-lg transition-all active:scale-95"
+                  title={t.addBookShortcut}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
                 </button>
               </div>
             </div>
 
-            {/* Search & Controls */}
-            <div className="flex flex-col md:flex-row gap-3 flex-grow md:max-w-3xl">
-              {/* Search Bar */}
-              <div className="relative flex-grow group">
+            {/* Search Bar & Desktop Nav Row */}
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative group flex-grow">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
@@ -215,148 +307,143 @@ export default function Home() {
                 />
               </div>
 
-              {/* View Mode & Sort */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex flex-wrap bg-gray-100 dark:bg-gray-800 p-1 rounded-lg gap-0.5">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      viewMode === 'grid' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    {t.grid}
-                  </button>
-                  <button
-                    onClick={() => setViewMode('author_group')}
-                    className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      viewMode === 'author_group' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    {t.author}
-                  </button>
-                  <button
-                    onClick={() => setViewMode('series_group')}
-                    className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      viewMode === 'series_group' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    {t.series}
-                  </button>
-                  <button
-                    onClick={() => setViewMode('bookshelf')}
-                    className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
-                      viewMode === 'bookshelf' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                      <path d="M2 4.25A2.25 2.25 0 014.25 2h11.5A2.25 2.25 0 0118 4.25v8.5A2.25 2.25 0 0115.75 15h-3.105a3.501 3.501 0 001.1 1.677A.75.75 0 0113.26 18H6.74a.75.75 0 01-.484-1.323A3.501 3.501 0 007.355 15H4.25A2.25 2.25 0 012 12.75v-8.5z" />
-                    </svg>
-                    {t.shelf}
-                  </button>
-                  <button
-                    onClick={() => setViewMode('stats' as any)}
-                    className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      viewMode === 'stats' ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    📊 {t.stats}
-                  </button>
-                </div>
-
-                <select
-                  value={sortOption}
-                  onChange={(e) => setSortOption(e.target.value as any)}
-                  className="block w-28 pl-2 pr-6 py-1.5 text-xs border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg bg-gray-50 dark:bg-gray-800"
-                >
-                  <option value="created_desc">{t.newest}</option>
-                  <option value="created_asc">{t.oldest}</option>
-                  <option value="title_asc">{t.titleAZ}</option>
-                  <option value="author_asc">{t.authorAZ}</option>
-                </select>
-
+              {/* Desktop Navigation */}
+              <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
                 <button
-                  onClick={() => setIsTitleSearchOpen(true)}
-                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700 shadow-md transition-all active:scale-95"
+                  onClick={() => setViewMode('grid')}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                    viewMode === 'grid'
+                      ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  }`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                  </svg>
-                  {t.titleSearch}
+                  {t.navGrid}
                 </button>
-
                 <button
-                  onClick={() => setIsScannerOpen(true)}
-                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 shadow-md transition-all active:scale-95"
+                  onClick={() => setViewMode('bookshelf')}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                    viewMode === 'bookshelf'
+                      ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  }`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75zM16.5 19.5h.75v.75h-.75v-.75z" />
-                  </svg>
-                  {t.scan}
+                  {t.navShelf}
+                </button>
+                <button
+                  onClick={() => setViewMode('series_group')}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                    viewMode === 'series_group'
+                      ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {t.navSeries}
+                </button>
+                <button
+                  onClick={() => setViewMode('author_group')}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                    viewMode === 'author_group'
+                      ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {t.author}
+                </button>
+                <button
+                  onClick={() => setViewMode('stats')}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                    viewMode === 'stats'
+                      ? 'bg-white dark:bg-gray-700 text-indigo-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {t.navStats}
                 </button>
               </div>
             </div>
-          </div>
 
-          {/* Status Filter Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mt-3">
-            <button
-              onClick={() => setStatusFilter(null)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
-                statusFilter === null ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-            >
-              {t.allBooks}
-            </button>
-            <button
-              onClick={() => setStatusFilter('wishlist')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
-                statusFilter === 'wishlist' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-            >
-              {t.wishlist}
-            </button>
-            <button
-              onClick={() => setStatusFilter('ordered')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
-                statusFilter === 'ordered' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-            >
-              {t.ordered}
-            </button>
-            <button
-              onClick={() => setStatusFilter('purchased_unread')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
-                statusFilter === 'purchased_unread' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-            >
-              {t.toRead}
-            </button>
-            <button
-              onClick={() => setStatusFilter('reading')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
-                statusFilter === 'reading' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-            >
-              {t.reading}
-            </button>
-            <button
-              onClick={() => setStatusFilter('done')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
-                statusFilter === 'done' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-            >
-              {t.done}
-            </button>
+            {/* Collapsible Filter & Sort Section */}
+            {(isFilterOpen || statusFilter) && (
+              <div className="animate-in slide-in-from-top-2 duration-200">
+                <div className="flex flex-col gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                  {/* Sort Select */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500">{t.sort || "Sort"}:</span>
+                    <select
+                      value={sortOption}
+                      onChange={(e) => setSortOption(e.target.value as import('@/types').SortOption)}
+                      className="block w-full md:w-auto pl-2 pr-6 py-1.5 text-xs border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg bg-white dark:bg-gray-900"
+                    >
+                      <option value="created_desc">{t.newest}</option>
+                      <option value="created_asc">{t.oldest}</option>
+                      <option value="title_asc">{t.titleAZ}</option>
+                      <option value="author_asc">{t.authorAZ}</option>
+                    </select>
+                  </div>
+
+                   {/* Status Filter Tabs */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                    <button
+                      onClick={() => setStatusFilter(null)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                        statusFilter === null ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      {t.allBooks}
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('wishlist')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                        statusFilter === 'wishlist' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      {t.wishlist}
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('ordered')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                        statusFilter === 'ordered' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      {t.ordered}
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('purchased_unread')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                        statusFilter === 'purchased_unread' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      {t.toRead}
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('reading')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                        statusFilter === 'reading' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      {t.reading}
+                    </button>
+                    <button
+                      onClick={() => setStatusFilter('done')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap ${
+                        statusFilter === 'done' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      {t.done}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Messages */}
+        {/* Messages - positioned at top center to avoid overlap with + button */}
         {message && (
-          <div className="fixed bottom-4 right-4 z-50 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg animate-bounce">
+          <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg animate-pulse">
             {message}
           </div>
         )}
@@ -415,10 +502,10 @@ export default function Home() {
                 if (viewMode === 'series_group' && a[0] === 'Other') return 1;
                 if (viewMode === 'series_group' && b[0] === 'Other') return -1;
                 return new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare(a[0], b[0]);
-            }).map(([groupName, groupData]: [string, any]) => {
+            }).map(([groupName, groupData]) => {
               const count = Array.isArray(groupData) 
                 ? groupData.length 
-                : Object.values(groupData).reduce((acc: number, val: any) => acc + (Array.isArray(val) ? val.length : 0), 0);
+                : Object.values(groupData as Record<string, Book[]>).reduce((acc, val) => acc + val.length, 0);
 
               return (
                 <GroupSection 
@@ -428,11 +515,11 @@ export default function Home() {
                 >
                   {viewMode === 'author_group' ? (
                      <div className="space-y-6">
-                       {Object.entries(groupData).sort((a: any, b: any) => {
+                       {Object.entries(groupData as Record<string, Book[]>).sort((a, b) => {
                            if (a[0] === 'Other') return 1;
                            if (b[0] === 'Other') return -1;
                            return new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare(a[0], b[0]);
-                       }).map(([seriesName, seriesBooks]: [string, any]) => (
+                       }).map(([seriesName, seriesBooks]) => (
                            <GroupSection
                              key={seriesName}
                              title={seriesName}
@@ -475,18 +562,7 @@ export default function Home() {
       </div>
 
       {/* Floating Action Button for Manual Add */}
-      <button
-        onClick={() => setIsManualAddModalOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-40 group"
-        title={t.addBookShortcut}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-        <span className="absolute right-full mr-3 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-          {t.addBookShortcut}
-        </span>
-      </button>
+      {/* Floating Action Button Removed (Moved to Header) */}
 
       {isScannerOpen && (
         <ScannerModal
@@ -543,7 +619,7 @@ export default function Home() {
 
       <BottomNav
         currentView={viewMode}
-        onViewChange={(view) => setViewMode(view as any)}
+        onViewChange={(view) => setViewMode(view)}
         onScanClick={() => setIsScannerOpen(true)}
       />
 

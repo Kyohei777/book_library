@@ -14,14 +14,14 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
 
   if (!mounted) {
     return (
-      <div className={`w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse ${className}`} />
+      <div className={`w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse ${className}`} />
     );
   }
 
   return (
     <button
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className={`p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-all ${className}`}
+      className={`flex items-center justify-center w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all ${className}`}
       aria-label="Toggle Dark Mode"
     >
       {theme === "dark" ? (

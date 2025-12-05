@@ -209,7 +209,7 @@ export const useLibrary = () => {
 
   return {
     books: processedBooks,
-    groupedBooks: groupedBooks as any, // 型定義を柔軟にするため一時的にany (本来は Union Type 推奨)
+    groupedBooks,
     loading,
     message,
     error,

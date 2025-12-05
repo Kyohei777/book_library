@@ -99,11 +99,20 @@ class BookResponse(BaseModel):
     lent_to: Optional[str] = None
     lent_date: Optional[datetime] = None
     due_date: Optional[datetime] = None
-    volume_number: Optional[int] = None
+    volume_number: Optional[float] = None
     is_series_representative: Optional[bool] = None
 
     class Config:
         from_attributes = True
+
+def get_existing_series(db: Session) -> list:
+    """Get list of distinct series titles from the database."""
+    series_rows = db.query(Book.series_title).filter(
+        Book.series_title.isnot(None),
+        Book.series_title != ''
+    ).distinct().all()
+    
+    return [s[0] for s in series_rows if s[0]]
 
 @app.post("/books", response_model=BookResponse, status_code=status.HTTP_201_CREATED)
 def create_book(book_in: BookCreate, db: Session = Depends(get_db)):
@@ -115,12 +124,15 @@ def create_book(book_in: BookCreate, db: Session = Depends(get_db)):
     if existing_book:
         raise HTTPException(status_code=400, detail="Book already registered")
 
+    # Get existing series to match against
+    existing_series = get_existing_series(db)
+    
     # Prepare book data
     book_data = book_in.dict(exclude_unset=True)
     
     # If title is missing, try to fetch from external APIs
     if not book_data.get("title"):
-        fetched_data = fetch_book_data(book_in.isbn)
+        fetched_data = fetch_book_data(book_in.isbn, existing_series)
         if fetched_data:
             for key, value in fetched_data.items():
                 # Save API's series_title as label (it's usually publisher label like 電撃文庫)
@@ -146,8 +158,8 @@ def create_book(book_in: BookCreate, db: Session = Depends(get_db)):
         if volume:
             book_data["volume_number"] = volume
     
-    # Always extract series title from title (ignore API's series_title which is usually label name)
-    if book_data.get("title"):
+    # Only extract series title from title if not already provided by user
+    if book_data.get("title") and not book_data.get("series_title"):
         book_data["series_title"] = clean_title(book_data["title"])
     
     # Note: Title format unification is disabled because each book may have unique subtitles
@@ -200,10 +212,14 @@ def create_book(book_in: BookCreate, db: Session = Depends(get_db)):
 
 @app.get("/books", response_model=List[BookResponse])
 def read_books(status: Optional[str] = None, db: Session = Depends(get_db)):
-    query = db.query(Book)
-    if status:
-        query = query.filter(Book.status == status)
-    return query.all()
+    try:
+        query = db.query(Book)
+        if status:
+            query = query.filter(Book.status == status)
+        return query.all()
+    except Exception as e:
+        print(f"Error reading books: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/books/{isbn}", response_model=BookResponse)
 def update_book(isbn: str, book_update: BookUpdate, db: Session = Depends(get_db)):
@@ -229,11 +245,12 @@ def delete_book(isbn: str, db: Session = Depends(get_db)):
     db.commit()
 
 @app.get("/lookup/isbn/{isbn}")
-def lookup_isbn(isbn: str):
+def lookup_isbn(isbn: str, db: Session = Depends(get_db)):
     """
     Lookup book information by ISBN using external APIs (Rakuten Books, Google Books)
     """
-    book_data = fetch_book_data(isbn)
+    existing_series = get_existing_series(db)
+    book_data = fetch_book_data(isbn, existing_series)
     if book_data:
         return book_data
     raise HTTPException(status_code=404, detail="Book not found")
@@ -253,7 +270,7 @@ def get_series_list(db: Session = Depends(get_db)):
     return {"series": series_list}
 
 @app.get("/test/compare-apis/{isbn}")
-def compare_apis(isbn: str):
+def compare_apis(isbn: str, db: Session = Depends(get_db)):
     """
     Test endpoint to compare data from all three APIs for the same ISBN.
     Useful for development and debugging.
@@ -317,16 +334,22 @@ def compare_apis(isbn: str):
         results["google"] = {"error": str(e)}
     
     # 4. Merged (what we actually use)
-    merged = fetch_book_data(isbn)
+    existing_series = get_existing_series(db)
+    merged = fetch_book_data(isbn, existing_series)
     if merged:
+        # Check if series was matched against existing series
+        series_title = merged.get("series_title")
+        series_matched = series_title in existing_series if series_title else False
+        
         results["merged"] = {
             "title": merged.get("title"),
             "authors": merged.get("authors"),
             "publisher": merged.get("publisher"),
             "published_date": merged.get("published_date"),
             "cover_url": merged.get("cover_url"),
-            "series_title": merged.get("series_title"),
+            "series_title": series_title,
             "volume_number": merged.get("volume_number"),
+            "series_matched": series_matched,  # True if matched existing series
         }
     
     return results

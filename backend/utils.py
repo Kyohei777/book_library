@@ -18,8 +18,9 @@ VOLUME_PATTERNS = [
     r'[Vv][Oo][Ll]\.?\s*(\d+(?:\.\d+)?)',  # Vol.1, Vol.8.5
     r'[#＃](\d+(?:\.\d+)?)',               # #1, #8.5
     r'[【\[](\d+(?:\.\d+)?)[】\]]',         # 【1】, [8.5]
-    r'\.\s*(\d+(?:\.\d+)?)',               # . 5, . 8.5 (with space or not) - Lower priority to avoid matching .5 in 13.5
+    r'(?<!\d)\.\s*(\d+(?:\.\d+)?)',        # . 5, . 8.5 (with space or not) - Lower priority to avoid matching .5 in 13.5
     r'\s+(\d+(?:\.\d+)?)$',                # "Title 1", "Title 8.5" (number at end)
+    r'\s+(\d{1,3}(?:\.\d+)?)\s+',          # "Title 1 Subtitle" (number in middle, max 3 digits)
 ]
 
 def extract_volume_number(title: str) -> float | None:
@@ -73,6 +74,9 @@ def clean_title(title: str) -> str:
     # Remove Japanese subtitles in parentheses (like 入学編 上, 夏休み編+1)
     cleaned = re.sub(r'\s*[（(][^）)]+[)）]\s*', '', cleaned)
     
+    # Remove square bracket patterns like ［上］, ［下］, [上], [下]
+    cleaned = re.sub(r'\s*[［\[][上中下前後][］\]]\s*', '', cleaned)
+    
     # Remove side story keywords and everything after
     # APPEND, SS, etc.
     side_story_keywords = [
@@ -119,50 +123,130 @@ def normalize_title(title: str) -> str:
     """
     Normalize a book title for display.
     Removes English subtitles but keeps volume numbers and Japanese subtitles.
+    Also removes duplicate content that may appear in titles.
     """
     if not title:
         return title
     
-    # Extract volume marker (. 5) and Japanese subtitle ((夏休み編+1)) before removing English
-    volume_match = re.search(r'(\.\s*\d+)', title)
-    volume_marker = volume_match.group(1) if volume_match else ''
+    normalized = title
     
-    # Find Japanese subtitle in parentheses (after the English part if exists)
-    # Look for pattern like (夏休み編+1) - parentheses with Japanese text
-    jp_subtitle_match = re.search(r'(\s*[（(][^\x00-\x7F][^）)]*[)）])', title)
-    jp_subtitle = jp_subtitle_match.group(1) if jp_subtitle_match else ''
+    # Step 1: Remove English subtitles (anything after = sign)
+    # Pattern: = followed by mostly English text
+    normalized = re.sub(r'\s*[=＝]\s*[A-Za-z].*$', '', normalized)
     
-    # Remove English subtitle (= followed by English text, up to but not including Japanese)
-    # This regex stops at Japanese characters or parentheses with Japanese
-    normalized = re.sub(r'\s*[=＝]\s*[A-Za-z][A-Za-z\s\-\'\",.!?:;()0-9]*(?=[^\x00-\x7F（(]|$)', '', title)
+    # Step 2: Remove duplicated text (e.g., "APPEND1 APPEND1" -> "APPEND1")
+    # Find repeating patterns
+    words = normalized.split()
+    seen = []
+    result_words = []
+    for word in words:
+        # Check if this word/phrase was just seen (handle "APPEND1 APPEND1")
+        if word not in seen or word.isdigit():
+            result_words.append(word)
+            seen.append(word)
+        # Reset seen list if word is significantly different (not a repeat)
+        if len(seen) > 3:
+            seen = seen[-3:]
+    normalized = ' '.join(result_words)
     
-    # If the result lost the volume marker or Japanese subtitle, reconstruct
-    if volume_marker and volume_marker not in normalized:
-        # Find the series name part
-        base = re.sub(r'\s*[=＝].*$', '', title)
-        if jp_subtitle:
-            normalized = base + volume_marker + ' ' + jp_subtitle.strip()
-        else:
-            normalized = base + volume_marker
-    
-    # Clean up extra whitespace
+    # Step 4: Clean up extra whitespace
     normalized = re.sub(r'\s+', ' ', normalized).strip()
+    
+    # Step 5: Clean trailing punctuation
+    normalized = re.sub(r'[\s\.\-－―:：]+$', '', normalized).strip()
     
     return normalized
 
-def extract_series_title(title: str, series_from_api: str = None) -> str:
+def clean_series_title(series_title: str) -> str:
     """
-    Get series title: prefer API-provided series name, fall back to cleaned title.
+    Clean a series title by removing trailing volume numbers.
+    For example: "新約とある魔術の禁書目録10" -> "新約とある魔術の禁書目録"
+    """
+    if not series_title:
+        return series_title
+    
+    # Remove trailing digits (volume numbers)
+    cleaned = re.sub(r'\s*\d+(?:\.\d+)?$', '', series_title)
+    
+    # Remove trailing volume markers like 巻, 話, etc.
+    cleaned = re.sub(r'\s*第?\d+[巻話集号]?$', '', cleaned)
+    
+    return cleaned.strip()
+
+def extract_series_title(title: str, series_from_api: str = None, existing_series: list = None) -> str:
+    """
+    Get series title: 
+    1. First try to match against existing series in the database
+    2. If no match, prefer API-provided series name
+    3. Fall back to cleaned title
+    
+    Args:
+        title: The book title to extract series from
+        series_from_api: Series name provided by API (may be label name)
+        existing_series: List of existing series titles from the database
     """
     # Always try to clean the title first to get a candidate series name
     cleaned = clean_title(title)
     
+    # Try to match against existing series first (if provided)
+    if existing_series:
+        # Filter out obviously invalid series names before sorting
+        valid_series = []
+        for series in existing_series:
+            # Skip if series is too short (likely garbage data)
+            if len(series) < 3:
+                continue
+            
+            # Skip if series is the same as or very close to the title (garbage data)
+            if series == title or series == cleaned:
+                continue
+            
+            # Skip if series length is more than 80% of title (likely full title as series)
+            if len(series) > len(title) * 0.8:
+                continue
+            
+            # Skip if series contains side-story indicators (these shouldn't be base series)
+            side_story_keywords = ["番外編", "外伝", "短編", "特典", "SS", "スピンオフ"]
+            has_side_story = any(kw in series for kw in side_story_keywords)
+            if has_side_story:
+                continue
+                
+            valid_series.append(series)
+        
+        # Sort by length descending to match longest first (more specific)
+        sorted_series = sorted(valid_series, key=len, reverse=True)
+        
+        for series in sorted_series:
+            # Check if title starts with this series name
+            if title.startswith(series) or cleaned.startswith(series):
+                # Found a matching existing series!
+                return series
+    
     # If API provided a series title, check if it's better
     if series_from_api:
-        # If API series is just the label (contains "文庫" or "コミックス"), ignore it
-        if "文庫" in series_from_api or "コミックス" in series_from_api or "BOOKS" in series_from_api or "GC NOVELS" in series_from_api:
-            return cleaned
-        return series_from_api
+        # Labels that should NOT be used as series titles
+        label_keywords = [
+            "文庫", "コミックス", "BOOKS", "ノベルズ", "ノベルス", 
+            "GC NOVELS", "GCノベルズ", "GC ノベルズ", "ＧＣノベルズ",
+            "電撃文庫", "角川文庫", "講談社文庫", "集英社文庫",
+            "MF文庫", "GA文庫", "ファンタジア文庫", "スニーカー文庫",
+            "富士見ファンタジア", "HJ文庫", "オーバーラップ文庫",
+        ]
+        
+        # Check if series_from_api contains any label keyword
+        is_label = False
+        for keyword in label_keywords:
+            if keyword in series_from_api:
+                is_label = True
+                break
+        
+        if not is_label:
+            # Also reject if series_from_api is very short (likely just a label abbreviation)
+            if not (len(series_from_api) <= 10 and series_from_api == series_from_api.upper()):
+                # Clean any trailing volume numbers from the API series
+                cleaned_api_series = clean_series_title(series_from_api)
+                if cleaned_api_series:
+                    return cleaned_api_series
         
     return cleaned
 
@@ -358,11 +442,15 @@ def format_book_title(title: str, series_title: str, volume_number: float | None
         
     return new_title
 
-def fetch_book_data(isbn: str):
+def fetch_book_data(isbn: str, existing_series: list = None):
     """
     Fetch book data from multiple APIs (OpenBD, Rakuten, Google) and merge them
     to create the most complete dataset possible.
     Waterfall approach: OpenBD -> Check missing (Title/Author/Cover/Series/Vol) -> Rakuten -> Check Cover -> Google
+    
+    Args:
+        isbn: The ISBN to look up
+        existing_series: Optional list of existing series titles from DB to match against
     """
     book_data = {}
     
@@ -496,8 +584,9 @@ def fetch_book_data(isbn: str):
             book_data["volume_number"] = volume
         
         # Set series_title: prefer API-provided, fallback to cleaned title
+        # Check against existing series in DB if provided
         api_series = book_data.get("series_title")
-        series_title = extract_series_title(title, api_series)
+        series_title = extract_series_title(title, api_series, existing_series)
         book_data["series_title"] = series_title
         
         # --- General Normalization ---
