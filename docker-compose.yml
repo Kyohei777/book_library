@@ -20,7 +20,6 @@ services:
       - "3002:3000"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:3000/api
       - BACKEND_URL=http://backend:8000
